@@ -28,6 +28,19 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # NEW STEP: Copy the docker-compose file to the VM
+      - name: Copy docker-compose.yml to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          source: "docker-compose.yml"
+          target: "~/SmartRent/"
+
       - name: SSH and Deploy
         uses: appleboy/ssh-action@master
         with:
@@ -35,13 +48,6 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            # Create project directory if it doesn't exist
-            mkdir -p ~/SmartRent
             cd ~/SmartRent
-
-            # Pull the latest image
-            docker pull hteinlinaung/smartrent:latest
-            
-            # Restart services using Docker Compose
-            # This handles both the API and the Postgres DB together
+            docker compose pull
             docker compose up -d
