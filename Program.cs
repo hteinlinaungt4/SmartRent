@@ -86,11 +86,13 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Enable Swagger for ALL environments (including Production)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartRent API V1");
+    c.RoutePrefix = "swagger"; // This ensures it lives at /swagger
+});
 
 app.UseHttpsRedirection();
 
