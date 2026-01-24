@@ -17,7 +17,7 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Build and Push
+      - name: Build and Push API
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -28,19 +28,6 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      # NEW STEP: Copy the docker-compose file to the VM
-      - name: Copy docker-compose.yml to VM
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          source: "docker-compose.yml"
-          target: "~/SmartRent/"
-
       - name: SSH and Deploy
         uses: appleboy/ssh-action@master
         with:
@@ -48,6 +35,41 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
+            # Create folder and navigate to it
+            mkdir -p ~/SmartRent
             cd ~/SmartRent
+
+            # Write the docker-compose file directly to the VM
+            cat <<EOF > docker-compose.yml
+            services:
+              smartrent-api:
+                image: hteinlinaung/smartrent:latest
+                container_name: smartrent-api
+                ports:
+                  - "8080:80"
+                environment:
+                  - ASPNETCORE_ENVIRONMENT=Production
+                  - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword
+                depends_on:
+                  - db
+
+              db:
+                image: postgres:latest
+                container_name: postgres-db
+                restart: always
+                environment:
+                  POSTGRES_USER: postgres
+                  POSTGRES_PASSWORD: mypassword
+                  POSTGRES_DB: smartrent_db
+                ports:
+                  - "5433:5432"
+                volumes:
+                  - postgres_data:/var/lib/postgresql/data
+
+            volumes:
+              postgres_data:
+            EOF
+
+            # Pull and Start
             docker compose pull
             docker compose up -d

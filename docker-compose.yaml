@@ -1,24 +1,25 @@
 services:
   smartrent-api:
     image: hteinlinaung/smartrent:latest
+    container_name: smartrent-api
     ports:
       - "8080:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      # We override the connection string to point to the 'db' service
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword
     depends_on:
       - db
 
   db:
     image: postgres:latest
+    container_name: postgres-db
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: smartrent_db
     ports:
-      - "5433:5432" # Keeps 5433 open for your local PGAdmin access
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
