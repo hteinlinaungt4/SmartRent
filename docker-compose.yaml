@@ -1,6 +1,6 @@
 services:
   smartrent-api:
-    image: hteinlinaung/donetwithcicd:latest
+    image: hteinlinaung/smartrent:latest
     ports:
       - "8080:80"
     environment:
