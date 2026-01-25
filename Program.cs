@@ -1,4 +1,3 @@
-
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -9,14 +8,11 @@ using SmartRent.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
+// --- 1. Services Configuration ---
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 
-
-//jwt
+// Swagger Configuration with JWT
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -45,9 +41,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-
-
-// Get JWT settings from appsettings.json
+// JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
@@ -63,56 +57,67 @@ builder.Services.AddAuthentication(options =>
     {
         ValidateIssuer = true,
         ValidateAudience = true,
-        ValidateLifetime = true, // Checks if token is expired
+        ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!)),
-        ClockSkew = TimeSpan.Zero // Removes the default 5-minute grace period for expiration
+        ClockSkew = TimeSpan.Zero
     };
 });
 
+// --- 2. Database Configuration ---
+// builder.Configuration သည် Environment Variable ကို အလိုအလျောက် ဦးစားပေးပြီးသားဖြစ်၍ 
+// GetConnectionString တစ်ကြောင်းတည်းဖြင့် လုံလောက်ပါသည်
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-//jwt
-
-
-///
-// Try standard helper first, then fallback to direct env variable lookup
-// Use direct Environment lookup as a fallback
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                      ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
-
-// Logic to wait for DB to be ready
 builder.Services.AddDbContext<DataContext>(options =>
 {
     options.UseNpgsql(connectionString, npgsqlOptions =>
     {
-        // This is a built-in Npgsql feature for transient failures
         npgsqlOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(5),
             errorCodesToAdd: null);
     });
 });
+
 builder.Services.AddScoped<ITokenService, TokenService>();
-///
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-// Enable Swagger for ALL environments (including Production)
+// --- 3. Database Migration Logic (Docker အတွက် ထည့်သွင်းရန်) ---
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<DataContext>();
+        if (context.Database.GetPendingMigrations().Any())
+        {
+            context.Database.Migrate();
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Database Migration လုပ်စဉ်တွင် Error တက်သွားသည်");
+    }
+}
+
+// --- 4. Middleware Pipeline ---
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartRent API V1");
-    c.RoutePrefix = "swagger"; // This ensures it lives at /swagger
+    c.RoutePrefix = "swagger";
 });
 
-app.UseHttpsRedirection();
+// Docker/VPS မှာ HTTPS Error မတက်အောင် လိုအပ်မှသာ သုံးပါ
+// app.UseHttpsRedirection(); 
 
 app.UseAuthentication();
 app.UseAuthorization();
-
 
 app.MapControllers();
 

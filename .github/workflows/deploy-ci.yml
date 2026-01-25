@@ -21,6 +21,9 @@ jobs:
         with:
           context: .
           push: true
+          # Cache သုံးခြင်းဖြင့် နောက်တစ်ကြိမ် build ရင် ပိုမြန်စေသည်
+          cache-from: type=gha
+          cache-to: type=inline
           tags: hteinlinaung/smartrent:latest
 
   deploy:
@@ -35,53 +38,60 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             set -e
-            cd ~/SmartRent
+            mkdir -p ~/SmartRent && cd ~/SmartRent
             
-            # 1. Kill everything and remove the network to clear DNS cache
+            # Docker DNS issues ကာကွယ်ရန် clean up လုပ်ခြင်း
             docker compose down --remove-orphans || true
             docker network prune -f || true
 
+            # Docker Compose ဖိုင်ကို Dynamic ဆောက်ခြင်း
             cat <<EOF > docker-compose.yml
+            version: "3.9"
             services:
               smartrent-api:
                 image: hteinlinaung/smartrent:latest
                 container_name: smartrent-api
                 restart: always
+                ports:
+                  - "8080:8080"
                 environment:
                   - ASPNETCORE_ENVIRONMENT=Production
-                  # Ensure NO spaces around '=' and NO quotes around the value
-                  - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword;
+                  - "ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=${{ secrets.DB_PASSWORD }}"
                 depends_on:
-                  - db
+                  db:
+                    condition: service_healthy
                 networks:
                   - smartrent-net
 
               db:
-                image: postgres:latest
+                image: postgres:15-alpine
                 container_name: postgres-db
                 restart: always
                 environment:
                   - POSTGRES_USER=postgres
-                  - POSTGRES_PASSWORD=mypassword
+                  - POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}
                   - POSTGRES_DB=smartrent_db
+                volumes:
+                  - postgres_data:/var/lib/postgresql/data
+                healthcheck:
+                  test: ["CMD-SHELL", "pg_isready -U postgres"]
+                  interval: 5s
+                  timeout: 5s
+                  retries: 5
                 networks:
                   - smartrent-net
 
             networks:
               smartrent-net:
                 driver: bridge
+
+            volumes:
+              postgres_data:
             EOF
 
+            # Deploy လုပ်ခြင်း
             docker compose pull
             docker compose up -d
-            
-            # Add this: Wait for Postgres to actually be ready to accept connections
-            echo "Waiting for database to be ready..."
-            until docker exec postgres-db pg_isready -U postgres; do
-              sleep 2
-            done
 
-            # Now restart the API to ensure it gets a fresh connection to the ready DB
-            docker restart smartrent-api
-            
+            # မလိုတဲ့ image အဟောင်းတွေကို ဖျက်ထုတ်ခြင်း (Disk space သက်သာစေရန်)
             docker image prune -f
