@@ -36,17 +36,17 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
+          envs: DB_PASSWORD
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           script: |
             set -e
             mkdir -p ~/SmartRent && cd ~/SmartRent
             
-            # Docker DNS issues ကာကွယ်ရန် clean up လုပ်ခြင်း
-            docker compose down --remove-orphans || true
+            docker compose down -v --remove-orphans || true
             docker network prune -f || true
 
-            # Docker Compose ဖိုင်ကို Dynamic ဆောက်ခြင်း
             cat <<EOF > docker-compose.yml
-            version: "3.9"
             services:
               smartrent-api:
                 image: hteinlinaung/smartrent:latest
@@ -74,10 +74,11 @@ jobs:
                 volumes:
                   - postgres_data:/var/lib/postgresql/data
                 healthcheck:
-                  test: ["CMD-SHELL", "pg_isready -U postgres"]
-                  interval: 5s
+                  test: ["CMD-SHELL", "sh -c 'pg_isready -U postgres -d smartrent_db'"]
+                  interval: 10s
                   timeout: 5s
-                  retries: 5
+                  retries: 10
+                  start_period: 10s
                 networks:
                   - smartrent-net
 
@@ -89,9 +90,7 @@ jobs:
               postgres_data:
             EOF
 
-            # Deploy လုပ်ခြင်း
             docker compose pull
             docker compose up -d
-
-            # မလိုတဲ့ image အဟောင်းတွေကို ဖျက်ထုတ်ခြင်း (Disk space သက်သာစေရန်)
+            
             docker image prune -f

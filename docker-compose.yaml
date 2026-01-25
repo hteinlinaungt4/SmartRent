@@ -27,10 +27,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s # ခဏခဏစစ်လွန်းရင် resource စားလို့ interval ကို နည်းနည်းတိုးထားပါတယ်
+      # -U postgres အစား environment မှာ ပေးထားတဲ့ user name ကို သုံးပါ
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smartrent_db"]
+      interval: 10s   # စောင့်ရမယ့် အချိန်ကို နည်းနည်း ထပ်တိုးကြည့်ပါ
       timeout: 5s
-      retries: 5
+      retries: 10     # ကြိုးစားတဲ့ အကြိမ်ရေကို ၅ ကြိမ်ကနေ ၁၀ ကြိမ်အထိ တိုးပေးပါ
+      start_period: 10s # Container စတက်ချင်းမှာ စစ်ဆေးတာကို ခဏစောင့်ပေးဖို့
     networks:
       - smartrent-net
 
