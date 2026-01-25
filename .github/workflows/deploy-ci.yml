@@ -65,6 +65,10 @@ jobs:
                 volumes:
                   - postgres_data:/var/lib/postgresql/data
 
+            networks:
+              smartrent-net:
+                driver: bridge
+
             volumes:
               postgres_data:
             EOF

@@ -27,6 +27,7 @@ services:
       - "5433:5432"  # Keep 5433 for your laptop to connect, but API uses 5432 internally
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      
 
 volumes:
   postgres_data:
