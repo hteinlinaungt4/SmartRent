@@ -6,7 +6,7 @@ services:
     container_name: smartrent-api
     restart: always  # API ပျက်သွားရင် auto ပြန်တက်အောင်
     ports:
-      - "8080:8080"  # Container port ကို 8080 လို့ ယူဆထားပါတယ်
+      - "8080:80"  # Container port ကို 8080 လို့ ယူဆထားပါတယ်
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword123

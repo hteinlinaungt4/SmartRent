@@ -46,7 +46,7 @@ jobs:
                 container_name: smartrent-api
                 restart: always
                 ports:
-                  - "8080:8080"
+                  - "8080:80"
                 environment:
                   - ASPNETCORE_ENVIRONMENT=Production
                   - "ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=\$DB_PASSWORD"
