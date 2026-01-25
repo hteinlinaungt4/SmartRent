@@ -9,7 +9,7 @@ services:
       - "8080:8080"  # Container port ကို 8080 လို့ ယူဆထားပါတယ်
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword123
     depends_on:
       db:
         condition: service_healthy
@@ -22,7 +22,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: mypassword
+      POSTGRES_PASSWORD: mypassword123
       POSTGRES_DB: smartrent_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
