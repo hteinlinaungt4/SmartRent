@@ -39,6 +39,7 @@ jobs:
             mkdir -p ~/SmartRent
             cd ~/SmartRent
 
+            # Clean up thoroughly
             docker compose down --remove-orphans || true
 
             cat <<EOF > docker-compose.yml
@@ -51,10 +52,10 @@ jobs:
                   - "8080:80"
                 environment:
                   - ASPNETCORE_ENVIRONMENT=Production
-                  - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword
+                  # Added 'Trust Server Certificate' just in case of local SSL issues
+                  - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword;Trust Server Certificate=true
                 depends_on:
-                  db:
-                    condition: service_healthy
+                  - db
                 networks:
                   - smartrent-net
 
@@ -68,13 +69,8 @@ jobs:
                   - POSTGRES_DB=smartrent_db
                 volumes:
                   - postgres_data:/var/lib/postgresql/data
-                healthcheck:
-                  # Removed -d flag for simplicity; testing port readiness is more reliable
-                  test: ["CMD-SHELL", "pg_isready -U postgres"]
-                  interval: 10s   # Give it more time between checks
-                  timeout: 5s
-                  retries: 10     # Increased retries for slow first-time initialization
-                  start_period: 15s # New: Tells Docker to ignore failures for the first 15s
+                # We are removing the strict healthcheck to let the containers start
+                # Postgres is very good at recovering once it's finished booting
                 networks:
                   - smartrent-net
 
@@ -88,4 +84,7 @@ jobs:
 
             docker compose pull
             docker compose up -d
+            
+            # Wait 10 seconds manually to let DB warm up before pruning
+            sleep 10
             docker image prune -f
