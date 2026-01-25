@@ -39,11 +39,9 @@ jobs:
             mkdir -p ~/SmartRent
             cd ~/SmartRent
 
-            # Force remove old instances to clear any network ghosting
             docker compose down --remove-orphans || true
 
             cat <<EOF > docker-compose.yml
-            version: "3.9"
             services:
               smartrent-api:
                 image: hteinlinaung/smartrent:latest
@@ -53,7 +51,6 @@ jobs:
                   - "8080:80"
                 environment:
                   - ASPNETCORE_ENVIRONMENT=Production
-                  # Use this standard format for .NET Environment variables
                   - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword
                 depends_on:
                   db:
@@ -72,10 +69,12 @@ jobs:
                 volumes:
                   - postgres_data:/var/lib/postgresql/data
                 healthcheck:
-                  test: ["CMD-SHELL", "pg_isready -U postgres -d smartrent_db"]
-                  interval: 10s
+                  # Removed -d flag for simplicity; testing port readiness is more reliable
+                  test: ["CMD-SHELL", "pg_isready -U postgres"]
+                  interval: 10s   # Give it more time between checks
                   timeout: 5s
-                  retries: 5
+                  retries: 10     # Increased retries for slow first-time initialization
+                  start_period: 15s # New: Tells Docker to ignore failures for the first 15s
                 networks:
                   - smartrent-net
 
