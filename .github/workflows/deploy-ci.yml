@@ -33,26 +33,31 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
+          # Inside your SSH and Deploy script block:
           script: |
             set -e
-
             mkdir -p ~/SmartRent
             cd ~/SmartRent
 
-            docker compose down || true
+            # Force remove old instances to clear any network ghosting
+            docker compose down --remove-orphans || true
 
             cat <<EOF > docker-compose.yml
+            version: "3.9"
             services:
               smartrent-api:
                 image: hteinlinaung/smartrent:latest
                 container_name: smartrent-api
+                restart: always
                 ports:
                   - "8080:80"
                 environment:
-                  ASPNETCORE_ENVIRONMENT: Production
-                  ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword
+                  - ASPNETCORE_ENVIRONMENT=Production
+                  # Use this standard format for .NET Environment variables
+                  - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword
                 depends_on:
-                  - db
+                  db:
+                    condition: service_healthy
                 networks:
                   - smartrent-net
 
@@ -61,11 +66,16 @@ jobs:
                 container_name: postgres-db
                 restart: always
                 environment:
-                  POSTGRES_USER: postgres
-                  POSTGRES_PASSWORD: mypassword
-                  POSTGRES_DB: smartrent_db
+                  - POSTGRES_USER=postgres
+                  - POSTGRES_PASSWORD=mypassword
+                  - POSTGRES_DB=smartrent_db
                 volumes:
                   - postgres_data:/var/lib/postgresql/data
+                healthcheck:
+                  test: ["CMD-SHELL", "pg_isready -U postgres -d smartrent_db"]
+                  interval: 10s
+                  timeout: 5s
+                  retries: 5
                 networks:
                   - smartrent-net
 
