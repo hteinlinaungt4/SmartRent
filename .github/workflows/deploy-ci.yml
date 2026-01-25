@@ -37,9 +37,8 @@ jobs:
             set -e
             cd ~/SmartRent
             
-            # 1. Kill everything and remove the network to clear DNS cache
+            # Wipe everything to ensure no DNS caching
             docker compose down --remove-orphans || true
-            docker network prune -f || true
 
             cat <<EOF > docker-compose.yml
             services:
@@ -49,7 +48,6 @@ jobs:
                 restart: always
                 environment:
                   - ASPNETCORE_ENVIRONMENT=Production
-                  # Ensure NO spaces around '=' and NO quotes around the value
                   - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword;
                 depends_on:
                   - db
@@ -59,17 +57,26 @@ jobs:
               db:
                 image: postgres:latest
                 container_name: postgres-db
+                # hostname makes it explicitly discoverable as 'db'
+                hostname: db
                 restart: always
                 environment:
                   - POSTGRES_USER=postgres
                   - POSTGRES_PASSWORD=mypassword
                   - POSTGRES_DB=smartrent_db
+                volumes:
+                  - postgres_data:/var/lib/postgresql/data
                 networks:
                   - smartrent-net
 
             networks:
               smartrent-net:
+                name: smartrent_shared_net
                 driver: bridge
+
+            volumes:
+              postgres_data:
             EOF
 
+            docker compose pull
             docker compose up -d
