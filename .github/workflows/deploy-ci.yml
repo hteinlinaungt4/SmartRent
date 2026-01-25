@@ -72,4 +72,16 @@ jobs:
                 driver: bridge
             EOF
 
+            docker compose pull
             docker compose up -d
+            
+            # Add this: Wait for Postgres to actually be ready to accept connections
+            echo "Waiting for database to be ready..."
+            until docker exec postgres-db pg_isready -U postgres; do
+              sleep 2
+            done
+
+            # Now restart the API to ensure it gets a fresh connection to the ready DB
+            docker restart smartrent-api
+            
+            docker image prune -f
