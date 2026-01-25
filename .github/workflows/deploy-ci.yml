@@ -8,16 +8,13 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-      - name: Build and Push API
+      - name: Build and Push
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -35,13 +32,13 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            # Create folder and navigate to it
             mkdir -p ~/SmartRent
             cd ~/SmartRent
 
+            # CRITICAL: Reset the network to fix DNS errors
             docker compose down || true
+            docker network prune -f
 
-            # Write the docker-compose file directly to the VM
             cat <<EOF > docker-compose.yml
             services:
               smartrent-api:
@@ -72,7 +69,8 @@ jobs:
               postgres_data:
             EOF
 
-            # Pull and Start
             docker compose pull
-            docker compose up -d
+            docker compose up -d db
+            sleep 10
+            docker compose up -d smartrent-api
             docker image prune -f

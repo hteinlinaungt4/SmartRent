@@ -1,4 +1,7 @@
+version: '3.8'
+
 services:
+  # 1. THE API SERVICE
   smartrent-api:
     image: hteinlinaung/smartrent:latest
     container_name: smartrent-api
@@ -6,10 +9,12 @@ services:
       - "8080:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      # Use double underscores (__) so .NET maps this to ConnectionStrings:DefaultConnection
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword
     depends_on:
       - db
 
+  # 2. THE DATABASE SERVICE
   db:
     image: postgres:latest
     container_name: postgres-db
@@ -19,7 +24,7 @@ services:
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: smartrent_db
     ports:
-      - "5433:5432"
+      - "5433:5432"  # Keep 5433 for your laptop to connect, but API uses 5432 internally
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
