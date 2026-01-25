@@ -77,9 +77,8 @@ builder.Services.AddAuthentication(options =>
 
 
 ///
-builder.Services.AddDbContext<DataContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                      ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
 builder.Services.AddScoped<ITokenService, TokenService>();
 ///
 
