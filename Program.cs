@@ -79,18 +79,21 @@ builder.Services.AddAuthentication(options =>
 ///
 // Try standard helper first, then fallback to direct env variable lookup
 // Use direct Environment lookup as a fallback
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                       ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
 
-if (string.IsNullOrEmpty(connectionString))
-{
-    // If this hits your logs, the environment variable isn't reaching the app
-    throw new InvalidOperationException("Database Connection String is missing from environment variables.");
-}
-
+// Logic to wait for DB to be ready
 builder.Services.AddDbContext<DataContext>(options =>
-    options.UseNpgsql(connectionString));
-
+{
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        // This is a built-in Npgsql feature for transient failures
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
+    });
+});
 builder.Services.AddScoped<ITokenService, TokenService>();
 ///
 
