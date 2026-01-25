@@ -77,7 +77,16 @@ builder.Services.AddAuthentication(options =>
 
 
 ///
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// Try standard helper first, then fallback to direct env variable lookup
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                      ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    // This will help you see in the logs if it's actually empty
+    throw new Exception("Connection string 'DefaultConnection' is null or empty!");
+}
+
 builder.Services.AddDbContext<DataContext>(options =>
     options.UseNpgsql(connectionString));
 
