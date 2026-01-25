@@ -33,13 +33,11 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
-          # Inside your SSH and Deploy script block:
           script: |
             set -e
-            mkdir -p ~/SmartRent
             cd ~/SmartRent
-
-            # Full reset of the network environment
+            
+            # 1. Kill everything and remove the network to clear DNS cache
             docker compose down --remove-orphans || true
             docker network prune -f || true
 
@@ -49,12 +47,10 @@ jobs:
                 image: hteinlinaung/smartrent:latest
                 container_name: smartrent-api
                 restart: always
-                ports:
-                  - "8080:80"
                 environment:
                   - ASPNETCORE_ENVIRONMENT=Production
-                  # NOTICE: Host is now postgres-db to match the container name
-                  - ConnectionStrings__DefaultConnection=Host=postgres-db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword;
+                  # Ensure NO spaces around '=' and NO quotes around the value
+                  - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword;
                 depends_on:
                   - db
                 networks:
@@ -68,21 +64,12 @@ jobs:
                   - POSTGRES_USER=postgres
                   - POSTGRES_PASSWORD=mypassword
                   - POSTGRES_DB=smartrent_db
-                volumes:
-                  - postgres_data:/var/lib/postgresql/data
                 networks:
                   - smartrent-net
 
             networks:
               smartrent-net:
                 driver: bridge
-
-            volumes:
-              postgres_data:
             EOF
 
-            docker compose pull
             docker compose up -d
-            
-            # Final cleanup
-            docker image prune -f

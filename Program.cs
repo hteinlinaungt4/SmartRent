@@ -78,13 +78,14 @@ builder.Services.AddAuthentication(options =>
 
 ///
 // Try standard helper first, then fallback to direct env variable lookup
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+// Use direct Environment lookup as a fallback
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
                       ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
 
 if (string.IsNullOrEmpty(connectionString))
 {
-    // This will help you see in the logs if it's actually empty
-    throw new Exception("Connection string 'DefaultConnection' is null or empty!");
+    // If this hits your logs, the environment variable isn't reaching the app
+    throw new InvalidOperationException("Database Connection String is missing from environment variables.");
 }
 
 builder.Services.AddDbContext<DataContext>(options =>
