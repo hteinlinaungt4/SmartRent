@@ -39,6 +39,8 @@ jobs:
             mkdir -p ~/SmartRent
             cd ~/SmartRent
 
+            docker compose down || true
+
             # Write the docker-compose file directly to the VM
             cat <<EOF > docker-compose.yml
             services:
@@ -73,3 +75,4 @@ jobs:
             # Pull and Start
             docker compose pull
             docker compose up -d
+            docker image prune -f
