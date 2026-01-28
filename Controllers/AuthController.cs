@@ -25,7 +25,7 @@ namespace SmartRent.Controllers
         [HttpGet("protected-data")]
         public IActionResult GetData()
         {
-            return Ok("This data is only visible if you have a valid Access Token!");
+            return Ok(new { data = "Hello world" });
         }
 
         [AllowAnonymous]
@@ -78,7 +78,7 @@ namespace SmartRent.Controllers
         // Because the client calls this AFTER the Access Token has expired.
         [AllowAnonymous]
         [HttpPost("refresh-token")]
-        public async Task<ActionResult<TokenDto>> RefreshToken(TokenDto request)
+        public async Task<ActionResult<TokenDto>> RefreshToken(TokenRequest request)
         {
             // 1. Find user by the provided Refresh Token
             var user = await _context.Users.FirstOrDefaultAsync(u => u.RefreshToken == request.RefreshToken);
