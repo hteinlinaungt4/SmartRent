@@ -7,6 +7,8 @@
         public bool IsThumbnail { get; set; } = false;
 
         public Guid PropertyId { get; set; }
+
+        [System.Text.Json.Serialization.JsonIgnore] // ဒါလေး ထည့်ပေးပါ
         public Property? Property { get; set; }
     }
 }
