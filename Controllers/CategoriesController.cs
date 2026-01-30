@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartRent.Data;
+using SmartRent.Dto;
 using SmartRent.Model;
 
 namespace SmartRent.Controllers
@@ -38,11 +39,19 @@ namespace SmartRent.Controllers
 
         // 3. POST: api/categories (Category အသစ်ထည့်ခြင်း)
         [HttpPost]
-        public async Task<ActionResult<Category>> CreateCategory(Category category)
+        public async Task<ActionResult<Category>> CreateCategory(CreateCategoryDto dto)
         {
+            // DTO ကနေ Database Entity (Category) ကို ပြောင်းပေးရပါမယ်
+            var category = new Category
+            {
+                Name = dto.Name,
+                IconName = dto.IconName
+            };
+
             _context.Categories.Add(category);
             await _context.SaveChangesAsync();
 
+            // Response ပြန်တဲ့အခါ Model အတိုင်း ပြန်ပို့ပေးလိုက်ပါတယ်
             return CreatedAtAction(nameof(GetCategory), new { id = category.Id }, category);
         }
 
