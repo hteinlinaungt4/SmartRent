@@ -116,6 +116,7 @@ app.UseSwaggerUI(c =>
 // Docker/VPS မှာ HTTPS Error မတက်အောင် လိုအပ်မှသာ သုံးပါ
 // app.UseHttpsRedirection(); 
 
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 

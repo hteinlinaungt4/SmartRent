@@ -22,11 +22,29 @@ namespace SmartRent.Controllers
             _tokenService = tokenService;
         }
 
-        [HttpGet("protected-data")]
-        public IActionResult GetData()
+        [HttpGet("profile")]
+        public async Task<ActionResult<UserProfileDto>> GetMyProfile()
         {
-            return Ok(new { data = "Hello world" });
+            // Token ထဲကနေ User Name ကို ယူခြင်း
+            var username = User.Identity?.Name;
+
+            var user = await _context.Users
+                .Include(u => u.Properties)
+                .FirstOrDefaultAsync(u => u.Username == username);
+
+            if (user == null) return NotFound();
+
+            return Ok(new UserProfileDto(
+                user.Id,
+                user.Username,
+                user.FullName,
+                user.AvatarUrl,
+                user.IsVerified,
+                user.TrustScore,
+                user.Properties.Count
+            ));
         }
+
 
         [AllowAnonymous]
         [HttpPost("register")]
