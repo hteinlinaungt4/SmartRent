@@ -57,24 +57,19 @@ namespace SmartRent.Controllers
 
         // 4. PUT: api/categories/5 (ပြင်ဆင်ခြင်း)
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCategory(Guid id, Category category)
+        public async Task<IActionResult> UpdateCategory(Guid id, UpdateCategoryDto dto)
         {
-            if (id != category.Id) return BadRequest();
+            var category = await _context.Categories.FindAsync(id);
+            if (category == null)
+                return NotFound();
 
-            _context.Entry(category).State = EntityState.Modified;
+            category.Name = dto.Name;
+            category.IconName = dto.IconName;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CategoryExists(id)) return NotFound();
-                else throw;
-            }
-
+            await _context.SaveChangesAsync();
             return NoContent();
         }
+
 
         // 5. DELETE: api/categories/5 (ဖျက်သိမ်းခြင်း)
         [HttpDelete("{id}")]
