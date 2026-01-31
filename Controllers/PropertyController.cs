@@ -71,12 +71,12 @@ namespace SmartRent.Controllers
         // 3. POST: api/property (Image Upload ပါဝင်သည်)
         // ---------------------------------------------------------
         [Authorize]
+        [Authorize]
         [HttpPost]
-        public async Task<ActionResult<Property>> PostProperty([FromForm] CreatePropertyDto dto)
+        public async Task<ActionResult<PropertyResponseDto>> PostProperty([FromForm] CreatePropertyDto dto)
         {
-            // User ID ရယူခြင်း
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdString)) return Unauthorized("User not found in token.");
+            if (string.IsNullOrEmpty(userIdString)) return Unauthorized("User not found.");
             var userId = Guid.Parse(userIdString);
 
             var property = new Property
@@ -95,30 +95,24 @@ namespace SmartRent.Controllers
                 Images = new List<PropertyImage>()
             };
 
-            // Image Upload Logic (Fixing Path.Combine Error)
+            // Image Upload Logic
             if (dto.Images != null && dto.Images.Count > 0)
             {
-                // WebRootPath null ဖြစ်နေရင် manual ရှာမယ်
                 string webRootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
                 string uploadsFolder = Path.Combine(webRootPath, "uploads", "properties");
-
                 if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
 
                 foreach (var file in dto.Images)
                 {
                     string uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
                     string filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                    using (var fileStream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await file.CopyToAsync(fileStream);
-                    }
+                    using (var fileStream = new FileStream(filePath, FileMode.Create)) { await file.CopyToAsync(fileStream); }
 
                     property.Images.Add(new PropertyImage
                     {
                         Id = Guid.NewGuid(),
                         ImageUrl = $"/uploads/properties/{uniqueFileName}",
-                        IsThumbnail = property.Images.Count == 0 // ပထမဆုံးပုံကို Thumbnail လုပ်မယ်
+                        IsThumbnail = property.Images.Count == 0
                     });
                 }
             }
@@ -126,15 +120,23 @@ namespace SmartRent.Controllers
             _context.Properties.Add(property);
             await _context.SaveChangesAsync();
 
-            // CreatedAtAction မှာ property (Entity) ကို တိုက်ရိုက်မပြန်ဘဲ 
-            // လိုအပ်တဲ့ field တွေပဲပါတဲ့ object သစ်တစ်ခုအနေနဲ့ ပြန်ပေးလိုက်ပါ
-            return CreatedAtAction(nameof(GetProperty), new { id = property.Id }, new
+            // Frontend Zod Schema နှင့် ကိုက်ညီအောင် DTO အပြည့်အစုံ ပြန်ပေးခြင်း
+            var responseDto = new PropertyResponseDto
             {
                 Id = property.Id,
                 Title = property.Title,
-                Price = property.Price,
-                Images = property.Images.Select(img => new { img.ImageUrl, img.IsThumbnail })
-            });
+                Price = property.Price, // DTO ထဲမှာ PriceFormatted logic ရှိပြီးသားမို့ ဒါပဲထည့်ပါ
+                Township = property.Township,
+                Beds = property.Beds,
+                Baths = property.Baths,
+                Sqft = property.Sqft,
+                CategoryName = (await _context.Categories.FindAsync(dto.CategoryId))?.Name ?? "General",
+                OwnerName = User.Identity?.Name ?? "Unknown",
+                TrustScore = 100,
+                ThumbnailUrl = property.Images.FirstOrDefault(img => img.IsThumbnail)?.ImageUrl ?? "/uploads/default.png"
+            };
+
+            return CreatedAtAction(nameof(GetProperty), new { id = property.Id }, responseDto);
         }
 
         // ---------------------------------------------------------
