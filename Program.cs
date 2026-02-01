@@ -9,8 +9,16 @@ using SmartRent.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. Services Configuration ---
-builder.Services.AddControllers();
+// -----------------------------
+// 1️⃣ Services Configuration
+// -----------------------------
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Prevent circular reference issues in JSON serialization
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 
 // Swagger Configuration with JWT
@@ -47,12 +55,6 @@ var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-    });
-
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -73,7 +75,9 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// --- 2. Database Configuration ---
+// -----------------------------
+// 2️⃣ Database Configuration
+// -----------------------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<DataContext>(options =>
@@ -87,15 +91,21 @@ builder.Services.AddDbContext<DataContext>(options =>
     });
 });
 
+// Scoped Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 
-// Make Kestrel listen on all network interfaces (for VM public IP)
-builder.WebHost.UseUrls("http://0.0.0.0:80");
+// -----------------------------
+// 3️⃣ Configure Kestrel
+// -----------------------------
+// Listen on all interfaces (important for VM/public IP)
+builder.WebHost.UseUrls("http://0.0.0.0:8080");
 
 var app = builder.Build();
 
-// --- 3. Database Migration Logic (Docker) ---
+// -----------------------------
+// 4️⃣ Database Migration (Docker/VM)
+// -----------------------------
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -114,7 +124,10 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// --- 4. Middleware Pipeline ---
+// -----------------------------
+// 5️⃣ Middleware Pipeline
+// -----------------------------
+
 // Swagger
 app.UseSwagger();
 app.UseSwaggerUI(c =>
@@ -123,30 +136,29 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-// Serve static files
+// Static Files
 var env = app.Services.GetRequiredService<IWebHostEnvironment>();
 
-// Ensure wwwroot exists
-if (string.IsNullOrEmpty(env.WebRootPath))
-{
-    env.WebRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-}
-Directory.CreateDirectory(env.WebRootPath);
+// Ensure wwwroot/uploads exists
+var uploadsPath = Path.Combine(env.ContentRootPath, "wwwroot", "uploads");
+Directory.CreateDirectory(uploadsPath);
 
 // Serve wwwroot normally
 app.UseStaticFiles();
 
-// Explicitly serve /uploads folder
+// Explicitly serve /uploads
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new PhysicalFileProvider(Path.Combine(env.WebRootPath, "uploads")),
+    FileProvider = new PhysicalFileProvider(uploadsPath),
     RequestPath = "/uploads"
 });
 
+// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 // Controllers
 app.MapControllers();
 
+// Run
 app.Run();
