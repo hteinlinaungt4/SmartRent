@@ -8,11 +8,23 @@ using SmartRent.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. Services Configuration ---
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
+// ------------------------
+// 1. Logging
+// ------------------------
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
 
-// Swagger Configuration with JWT
+// ------------------------
+// 2. Services
+// ------------------------
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Avoid circular references
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
+
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -36,23 +48,24 @@ builder.Services.AddSwaggerGen(options =>
                     Id = "Bearer"
                 }
             },
-            new string[] {}
+            Array.Empty<string>()
         }
     });
 });
 
-// JWT Authentication
+// ------------------------
+// 3. JWT Authentication
+// ------------------------
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        // Circular Reference ကို ignore လုပ်ခိုင်းလိုက်တာပါ
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-    });
+if (string.IsNullOrWhiteSpace(jwtKey) ||
+    string.IsNullOrWhiteSpace(jwtIssuer) ||
+    string.IsNullOrWhiteSpace(jwtAudience))
+{
+    throw new Exception("JWT configuration is missing. Set Jwt:Key, Jwt:Issuer, and Jwt:Audience in environment or appsettings.");
+}
 
 builder.Services.AddAuthentication(options =>
 {
@@ -69,15 +82,17 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!)),
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         ClockSkew = TimeSpan.Zero
     };
 });
 
-// --- 2. Database Configuration ---
-// builder.Configuration သည် Environment Variable ကို အလိုအလျောက် ဦးစားပေးပြီးသားဖြစ်၍ 
-// GetConnectionString တစ်ကြောင်းတည်းဖြင့် လုံလောက်ပါသည်
+// ------------------------
+// 4. Database
+// ------------------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new Exception("Database connection string is missing. Set ConnectionStrings:DefaultConnection.");
 
 builder.Services.AddDbContext<DataContext>(options =>
 {
@@ -90,31 +105,42 @@ builder.Services.AddDbContext<DataContext>(options =>
     });
 });
 
+// ------------------------
+// 5. Application Services
+// ------------------------
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 
 var app = builder.Build();
 
-// --- 3. Database Migration Logic (Docker အတွက် ထည့်သွင်းရန်) ---
+// ------------------------
+// 6. Automatic DB Migration
+// ------------------------
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
     try
     {
         var context = services.GetRequiredService<DataContext>();
         if (context.Database.GetPendingMigrations().Any())
         {
+            logger.LogInformation("Applying pending database migrations...");
             context.Database.Migrate();
+            logger.LogInformation("Database migrations applied successfully.");
         }
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Database Migration လုပ်စဉ်တွင် Error တက်သွားသည်");
+        logger.LogError(ex, "Error occurred while migrating the database.");
+        throw; // Stop app if migration fails
     }
 }
 
-// --- 4. Middleware Pipeline ---
+// ------------------------
+// 7. Middleware
+// ------------------------
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -122,8 +148,8 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-// Docker/VPS မှာ HTTPS Error မတက်အောင် လိုအပ်မှသာ သုံးပါ
-// app.UseHttpsRedirection(); 
+// If HTTPS is not set up on VM, keep it commented
+// app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseAuthentication();
@@ -131,4 +157,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// ------------------------
+// 8. Run App
+// ------------------------
 app.Run();
