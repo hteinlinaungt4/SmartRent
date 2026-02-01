@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using SmartRent.Data;
 using SmartRent.Interface;
@@ -46,11 +47,9 @@ var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
-
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Circular Reference ကို ignore လုပ်ခိုင်းလိုက်တာပါ
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
@@ -75,8 +74,6 @@ builder.Services.AddAuthentication(options =>
 });
 
 // --- 2. Database Configuration ---
-// builder.Configuration သည် Environment Variable ကို အလိုအလျောက် ဦးစားပေးပြီးသားဖြစ်၍ 
-// GetConnectionString တစ်ကြောင်းတည်းဖြင့် လုံလောက်ပါသည်
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<DataContext>(options =>
@@ -93,9 +90,12 @@ builder.Services.AddDbContext<DataContext>(options =>
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 
+// Make Kestrel listen on all network interfaces (for VM public IP)
+builder.WebHost.UseUrls("http://0.0.0.0:80");
+
 var app = builder.Build();
 
-// --- 3. Database Migration Logic (Docker အတွက် ထည့်သွင်းရန်) ---
+// --- 3. Database Migration Logic (Docker) ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -110,11 +110,12 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Database Migration လုပ်စဉ်တွင် Error တက်သွားသည်");
+        logger.LogError(ex, "Database Migration Error");
     }
 }
 
 // --- 4. Middleware Pipeline ---
+// Swagger
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -122,13 +123,30 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-// Docker/VPS မှာ HTTPS Error မတက်အောင် လိုအပ်မှသာ သုံးပါ
-// app.UseHttpsRedirection(); 
+// Serve static files
+var env = app.Services.GetRequiredService<IWebHostEnvironment>();
 
+// Ensure wwwroot exists
+if (string.IsNullOrEmpty(env.WebRootPath))
+{
+    env.WebRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+}
+Directory.CreateDirectory(env.WebRootPath);
+
+// Serve wwwroot normally
 app.UseStaticFiles();
+
+// Explicitly serve /uploads folder
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(Path.Combine(env.WebRootPath, "uploads")),
+    RequestPath = "/uploads"
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Controllers
 app.MapControllers();
 
 app.Run();
