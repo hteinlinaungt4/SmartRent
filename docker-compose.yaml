@@ -2,14 +2,19 @@ version: "3.9"
 
 services:
   smartrent-api:
+    build: . # Dockerfile ရှိတဲ့ folder (လက်ရှိ folder)
     image: hteinlinaung/smartrent:latest
     container_name: smartrent-api
-    restart: always  # API ပျက်သွားရင် auto ပြန်တက်အောင်
+    restart: always
     ports:
-      - "8080:80"  # Container port ကို 8080 လို့ ယူဆထားပါတယ်
+      - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=mypassword123
+      - Jwt__Key=YourSuperSecretKey_MustBeLong_12345!
+      - Jwt__Issuer=SmartRent
+      - Jwt__Audience=SmartRentUsers
     depends_on:
       db:
         condition: service_healthy
@@ -17,9 +22,10 @@ services:
       - smartrent-net
 
   db:
-    image: postgres:15-alpine # 'latest' အစား version အသေသုံးတာက ပိုငြိမ်ပါတယ် (alpine က image ပိုသေးတယ်)
+    image: postgres:15 # Alpine မဟုတ်တဲ့ Full version ကို သုံးလိုက်တာက ပိုပြီး Robust (ခိုင်ခံ့) ပါတယ်
     container_name: postgres-db
     restart: always
+    shm_size: 128mb # Shared memory ကို သတ်မှတ်ပေးခြင်းက Linux ပေါ်မှာ ပိုမြန်စေတယ်
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: mypassword123
@@ -27,12 +33,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      # -U postgres အစား environment မှာ ပေးထားတဲ့ user name ကို သုံးပါ
       test: ["CMD-SHELL", "pg_isready -U postgres -d smartrent_db"]
-      interval: 10s   # စောင့်ရမယ့် အချိန်ကို နည်းနည်း ထပ်တိုးကြည့်ပါ
+      interval: 10s
       timeout: 5s
-      retries: 10     # ကြိုးစားတဲ့ အကြိမ်ရေကို ၅ ကြိမ်ကနေ ၁၀ ကြိမ်အထိ တိုးပေးပါ
-      start_period: 10s # Container စတက်ချင်းမှာ စစ်ဆေးတာကို ခဏစောင့်ပေးဖို့
+      retries: 5
     networks:
       - smartrent-net
 
