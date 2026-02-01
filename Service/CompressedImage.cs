@@ -46,6 +46,7 @@ namespace SmartRent.Service
             var encoder = new JpegEncoder { Quality = 75 };
             await image.SaveAsync(filePath, encoder);
 
+            // Database မှာ သိမ်းဖို့ path အတိုလေးပဲ ပြန်ပေးမယ်
             return $"/uploads/{folderName}/{uniqueFileName}";
         }
 
@@ -54,7 +55,10 @@ namespace SmartRent.Service
             if (string.IsNullOrEmpty(imageUrl) || imageUrl.Contains("default.png")) return;
 
             string webRootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            var filePath = Path.Combine(webRootPath, imageUrl.TrimStart('/'));
+
+            // URL ထဲမှာ domain ပါနေရင် ခွာထုတ်ဖို့ (Security အတွက်)
+            string relativePath = imageUrl.StartsWith("http") ? new Uri(imageUrl).LocalPath : imageUrl;
+            var filePath = Path.Combine(webRootPath, relativePath.TrimStart('/'));
 
             if (File.Exists(filePath)) File.Delete(filePath);
         }

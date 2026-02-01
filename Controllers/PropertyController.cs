@@ -22,10 +22,14 @@ namespace SmartRent.Controllers
             _imageService = imageService;
         }
 
+        // Base URL ယူရန် Helper
+        private string GetBaseUrl() => $"{Request.Scheme}://{Request.Host}";
+
         // 1. GET ALL
         [HttpGet]
         public async Task<ActionResult<IEnumerable<PropertyResponseDto>>> GetProperties()
         {
+            var baseUrl = GetBaseUrl();
             return await _context.Properties
                 .Include(p => p.Category).Include(p => p.User).Include(p => p.Images)
                 .OrderByDescending(p => p.CreatedAt)
@@ -41,16 +45,17 @@ namespace SmartRent.Controllers
                     CategoryName = p.Category != null ? p.Category.Name : "General",
                     OwnerName = p.User != null ? p.User.Username : "Unknown",
                     TrustScore = p.User != null ? p.User.TrustScore : 0,
-                    ThumbnailUrl = p.Images.FirstOrDefault(i => i.IsThumbnail) != null
-                                   ? p.Images.First(i => i.IsThumbnail).ImageUrl
-                                   : (p.Images.Any() ? p.Images.First().ImageUrl : "/uploads/default.png")
+                    ThumbnailUrl = p.Images.Any(i => i.IsThumbnail)
+                                   ? baseUrl + p.Images.First(i => i.IsThumbnail).ImageUrl
+                                   : (p.Images.Any() ? baseUrl + p.Images.First().ImageUrl : baseUrl + "/uploads/default.png")
                 }).ToListAsync();
         }
 
-        // 2. GET BY ID (With Detail DTO)
+        // 2. GET BY ID
         [HttpGet("{id}")]
         public async Task<ActionResult<PropertyDetailResponseDto>> GetProperty(Guid id)
         {
+            var baseUrl = GetBaseUrl();
             var property = await _context.Properties
                 .Include(p => p.Category).Include(p => p.Images).Include(p => p.User)
                 .Where(p => p.Id == id)
@@ -73,7 +78,7 @@ namespace SmartRent.Controllers
                     Images = p.Images.Select(img => new ImageDto
                     {
                         Id = img.Id,
-                        ImageUrl = img.ImageUrl,
+                        ImageUrl = baseUrl + img.ImageUrl,
                         IsThumbnail = img.IsThumbnail
                     }).ToList()
                 }).FirstOrDefaultAsync();
@@ -84,7 +89,7 @@ namespace SmartRent.Controllers
         // 3. POST
         [Authorize]
         [HttpPost]
-        public async Task<ActionResult<PropertyResponseDto>> PostProperty([FromForm] CreatePropertyDto dto)
+        public async Task<ActionResult> PostProperty([FromForm] CreatePropertyDto dto)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -108,11 +113,11 @@ namespace SmartRent.Controllers
             {
                 foreach (var file in dto.Images)
                 {
-                    var url = await _imageService.SaveImageAsync(file, "properties");
+                    var relativeUrl = await _imageService.SaveImageAsync(file, "properties");
                     property.Images.Add(new PropertyImage
                     {
                         Id = Guid.NewGuid(),
-                        ImageUrl = url,
+                        ImageUrl = relativeUrl,
                         IsThumbnail = property.Images.Count == 0
                     });
                 }
@@ -120,10 +125,10 @@ namespace SmartRent.Controllers
 
             _context.Properties.Add(property);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetProperty), new { id = property.Id }, property.Id);
+            return CreatedAtAction(nameof(GetProperty), new { id = property.Id }, new { id = property.Id });
         }
 
-        // 4. PUT (Update with Syncing Logic)
+        // 4. PUT (Update)
         [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProperty(Guid id, [FromForm] UpdatePropertyDto dto)
@@ -144,14 +149,14 @@ namespace SmartRent.Controllers
             property.Baths = dto.Baths;
             property.Sqft = dto.Sqft;
 
-            // Delete Images
-            if (dto.DeletedImageIds != null)
+            // Delete Images (Physical File + DB Record)
+            if (dto.DeletedImageIds != null && dto.DeletedImageIds.Any())
             {
-                var toRemove = property.Images.Where(i => dto.DeletedImageIds.Contains(i.Id)).ToList();
-                foreach (var img in toRemove)
+                var imagesToRemove = property.Images.Where(i => dto.DeletedImageIds.Contains(i.Id)).ToList();
+                foreach (var img in imagesToRemove)
                 {
-                    _imageService.DeleteImage(img.ImageUrl);
-                    _context.PropertyImages.Remove(img);
+                    _imageService.DeleteImage(img.ImageUrl); // physical ဖျက်မယ်
+                    _context.PropertyImages.Remove(img);     // DB က ဖျက်မယ်
                 }
             }
 
@@ -160,12 +165,17 @@ namespace SmartRent.Controllers
             {
                 foreach (var file in dto.Images)
                 {
-                    var url = await _imageService.SaveImageAsync(file, "properties");
-                    property.Images.Add(new PropertyImage { Id = Guid.NewGuid(), ImageUrl = url, IsThumbnail = false });
+                    var relativeUrl = await _imageService.SaveImageAsync(file, "properties");
+                    property.Images.Add(new PropertyImage
+                    {
+                        Id = Guid.NewGuid(),
+                        ImageUrl = relativeUrl,
+                        IsThumbnail = false
+                    });
                 }
             }
 
-            // Ensure at least one thumbnail
+            // အကယ်၍ Thumbnail ရှိမနေရင် ပထမဆုံးပုံကို Thumbnail ပေးမယ်
             if (property.Images.Any() && !property.Images.Any(i => i.IsThumbnail))
                 property.Images.First().IsThumbnail = true;
 
@@ -184,7 +194,11 @@ namespace SmartRent.Controllers
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             if (property.UserId != userId) return Forbid();
 
-            foreach (var img in property.Images) _imageService.DeleteImage(img.ImageUrl);
+            // ဆိုင်ရာ ပုံတွေအကုန်လုံးကို physical ဖျက်ပစ်မယ်
+            foreach (var img in property.Images)
+            {
+                _imageService.DeleteImage(img.ImageUrl);
+            }
 
             _context.Properties.Remove(property);
             await _context.SaveChangesAsync();

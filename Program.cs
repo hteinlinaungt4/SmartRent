@@ -110,6 +110,16 @@ builder.Services.AddDbContext<DataContext>(options =>
 // ------------------------
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 var app = builder.Build();
 
@@ -137,6 +147,11 @@ using (var scope = app.Services.CreateScope())
         throw; // Stop app if migration fails
     }
 }
+// builder.Services ထဲမှာ ထည့်ရန်
+
+
+// app.UseAuthorization() ရဲ့ အပေါ်မှာ ထည့်ရန်
+app.UseCors("AllowAll");
 
 // ------------------------
 // 7. Middleware
