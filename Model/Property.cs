@@ -11,7 +11,7 @@ namespace SmartRent.Model
         public string? Description { get; set; }
 
         [Required]
-        public decimal Price { get; set; }
+        public string Price { get; set; }
         public string Township { get; set; } = string.Empty;
         public string? Address { get; set; }
 

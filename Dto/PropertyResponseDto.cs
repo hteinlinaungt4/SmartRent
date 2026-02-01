@@ -6,10 +6,7 @@ namespace SmartRent.Dto
     {
         public Guid Id { get; set; }
         public string Title { get; set; } = string.Empty;
-
-        [JsonIgnore]
-        public decimal Price { get; set; }
-        public string PriceFormatted => $"{(Price / 100000):N1} Lakhs"; // 8.0 Lakhs ပုံစံပြောင်းရန်
+        public string Price { get; set; }
         public string Township { get; set; } = string.Empty;
         public int Beds { get; set; }
         public int Baths { get; set; }
