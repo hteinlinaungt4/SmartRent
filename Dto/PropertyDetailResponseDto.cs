@@ -18,6 +18,8 @@
 
         // Owner Info (Sensitive data တွေ မပါတော့ဘူး)
         public string OwnerName { get; set; } = string.Empty;
+
+        public string OwnerId { get; set; } = string.Empty;
         public int TrustScore { get; set; }
         public string? OwnerPhone { get; set; }
 
