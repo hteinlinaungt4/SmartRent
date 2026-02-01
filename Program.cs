@@ -163,6 +163,7 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
+
 // If HTTPS is not set up on VM, keep it commented
 // app.UseHttpsRedirection();
 

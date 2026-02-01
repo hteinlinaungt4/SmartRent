@@ -2,7 +2,7 @@ name: SmartRent CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build-and-push:
@@ -36,7 +36,7 @@ jobs:
           script: |
             set -e
             mkdir -p ~/SmartRent && cd ~/SmartRent
-            
+
             docker compose down -v --remove-orphans || true
 
             cat <<EOF > docker-compose.yml
@@ -46,7 +46,7 @@ jobs:
                 container_name: smartrent-api
                 restart: always
                 ports:
-                  - "8080:80"
+                  - "8080:8080"
                 environment:
                   - ASPNETCORE_ENVIRONMENT=Production
                   - "ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=smartrent_db;Username=postgres;Password=\$DB_PASSWORD"
@@ -62,8 +62,12 @@ jobs:
                 restart: always
                 environment:
                   - "POSTGRES_USER=postgres"
+                  - ASPNETCORE_URLS=http://+:8080 
                   - "POSTGRES_PASSWORD=\$DB_PASSWORD"
                   - "POSTGRES_DB=smartrent_db"
+                  - "Jwt__Key=${{ secrets.JWT_KEY }}"      
+                  - "Jwt__Issuer=${{ secrets.JWT_ISSUER }}"
+                  - "Jwt__Audience=${{ secrets.JWT_AUDIENCE }}"
                 volumes:
                   - postgres_data:/var/lib/postgresql/data
                 healthcheck:
