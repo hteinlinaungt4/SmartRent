@@ -140,18 +140,18 @@ app.UseSwaggerUI(c =>
 var env = app.Services.GetRequiredService<IWebHostEnvironment>();
 
 // Ensure wwwroot/uploads exists
-var uploadsPath = Path.Combine(env.WebRootPath, "uploads");
-if (!Directory.Exists(uploadsPath)) Directory.CreateDirectory(uploadsPath);
+//var uploadsPath = Path.Combine(env.ContentRootPath, "wwwroot", "uploads");
+//Directory.CreateDirectory(uploadsPath);
 
 // Serve wwwroot normally
 app.UseStaticFiles();
 
-// Explicitly serve /uploads
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(uploadsPath),
-    RequestPath = "/uploads"
-});
+//// Explicitly serve /uploads
+//app.UseStaticFiles(new StaticFileOptions
+//{
+//    FileProvider = new PhysicalFileProvider(uploadsPath),
+//    RequestPath = "/uploads"
+//});
 
 // Authentication & Authorization
 app.UseAuthentication();
