@@ -15,13 +15,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Prevent circular reference issues in JSON serialization
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
 builder.Services.AddEndpointsApiExplorer();
 
-// Swagger Configuration with JWT
+// Swagger Configuration
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -79,32 +78,26 @@ builder.Services.AddAuthentication(options =>
 // 2️⃣ Database Configuration
 // -----------------------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
 builder.Services.AddDbContext<DataContext>(options =>
 {
     options.UseNpgsql(connectionString, npgsqlOptions =>
     {
-        npgsqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(5),
-            errorCodesToAdd: null);
+        npgsqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(5), null);
     });
 });
 
-// Scoped Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 
 // -----------------------------
 // 3️⃣ Configure Kestrel
 // -----------------------------
-// Listen on all interfaces (important for VM/public IP)
 builder.WebHost.UseUrls("http://0.0.0.0:8080");
 
 var app = builder.Build();
 
 // -----------------------------
-// 4️⃣ Database Migration (Docker/VM)
+// 4️⃣ Database Migration
 // -----------------------------
 using (var scope = app.Services.CreateScope())
 {
@@ -128,7 +121,6 @@ using (var scope = app.Services.CreateScope())
 // 5️⃣ Middleware Pipeline
 // -----------------------------
 
-// Swagger
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -136,29 +128,23 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-// Static Files
-var env = app.Services.GetRequiredService<IWebHostEnvironment>();
+// --- ပြင်ဆင်လိုက်သော Static Files အပိုင်း ---
 
-// Ensure wwwroot/uploads exists
-var uploadsPath = Path.Combine(env.ContentRootPath, "wwwroot", "uploads");
-Directory.CreateDirectory(uploadsPath);
+// ၁။ Folder တည်ရှိကြောင်း သေချာအောင်လုပ်ခြင်း
+var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads");
+if (!Directory.Exists(uploadsPath))
+{
+    Directory.CreateDirectory(uploadsPath);
+}
 
-// Serve wwwroot normally
+// ၂။ အခြေခံ Static Files (wwwroot အောက်က အရာအားလုံးကို access ပေးသည်)
 app.UseStaticFiles();
 
-// Explicitly serve /uploads
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(uploadsPath),
-    RequestPath = "/uploads"
-});
+// ----------------------------------------
 
-// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Controllers
 app.MapControllers();
 
-// Run
 app.Run();
