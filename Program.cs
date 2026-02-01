@@ -1,7 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using SmartRent.Data;
 using SmartRent.Interface;
@@ -126,12 +125,7 @@ app.UseSwaggerUI(c =>
 // Docker/VPS မှာ HTTPS Error မတက်အောင် လိုအပ်မှသာ သုံးပါ
 // app.UseHttpsRedirection(); 
 
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(
-        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
-    RequestPath = ""
-});
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
