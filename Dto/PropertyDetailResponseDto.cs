@@ -15,6 +15,7 @@
 
         // Category Info
         public string CategoryName { get; set; } = string.Empty;
+        public string CategoryId { get; set; } = string.Empty;
 
         // Owner Info (Sensitive data တွေ မပါတော့ဘူး)
         public string OwnerName { get; set; } = string.Empty;
