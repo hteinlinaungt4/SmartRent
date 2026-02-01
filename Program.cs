@@ -8,16 +8,11 @@ using SmartRent.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-    });
-
+// --- 1. Services Configuration ---
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-
+// Swagger Configuration with JWT
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -46,9 +41,17 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
 
 builder.Services.AddAuthentication(options =>
 {
@@ -70,25 +73,25 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<DataContext>(options =>
 {
     options.UseNpgsql(connectionString, npgsqlOptions =>
     {
-        npgsqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(5), null);
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
     });
 });
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 
-
-builder.WebHost.UseUrls("http://0.0.0.0:8080");
-
 var app = builder.Build();
 
-
+// --- 3. Database Migration Logic (Docker အတွက် ထည့်သွင်းရန်) ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -103,21 +106,26 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Database Migration Error");
+        logger.LogError(ex, "Database Migration လုပ်စဉ်တွင် Error တက်သွားသည်");
     }
 }
 
+// --- 4. Middleware Pipeline ---
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartRent API V1");
-    c.RoutePrefix = "swagger"; 
+    c.RoutePrefix = "swagger";
 });
 
+// app.UseHttpsRedirection(); 
+var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads");
+if (!Directory.Exists(uploadsPath))
+{
+    Directory.CreateDirectory(uploadsPath);
+}
+
 app.UseStaticFiles();
-
-app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
