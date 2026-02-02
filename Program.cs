@@ -9,8 +9,6 @@ using SmartRent.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
-
 // ------------------------
 // 1. Logging
 // ------------------------
