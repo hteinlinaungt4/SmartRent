@@ -7,12 +7,10 @@ namespace SmartRent.Model
         public Guid Id { get; set; }
 
         [Required]
-        [StringLength(50)]
-        public string Name { get; set; } = string.Empty; // e.g., Condo, Apartment
+        [StringLength(20)]
+        public string Name { get; set; } = string.Empty; 
 
-        public string? IconName { get; set; } // e.g., "business-outline" (Ionicons)
-
-        // Navigation Property: Category တစ်ခုအောက်မှာ Property တွေ အများကြီးရှိနိုင်သည်
+        public string? IconName { get; set; } 
         public List<Property> Properties { get; set; } = new();
     }
 }

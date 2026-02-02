@@ -33,8 +33,8 @@ namespace SmartRent.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.HasKey("Id");
 

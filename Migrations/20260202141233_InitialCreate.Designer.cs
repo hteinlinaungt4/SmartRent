@@ -12,8 +12,8 @@ using SmartRent.Data;
 namespace SmartRent.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20260201032325_ChangeAgeType")]
-    partial class ChangeAgeType
+    [Migration("20260202141233_InitialCreate")]
+    partial class InitialCreate
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -35,8 +35,8 @@ namespace SmartRent.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.HasKey("Id");
 
