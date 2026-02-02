@@ -10,15 +10,6 @@ using SmartRent.Service;
 var builder = WebApplication.CreateBuilder(args);
 
 
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        // Convert property names to camelCase
-        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-
-        // Optional: Make JSON indented
-        options.JsonSerializerOptions.WriteIndented = true;
-    });
 
 // ------------------------
 // 1. Logging
