@@ -68,8 +68,7 @@ namespace SmartRent.Controllers
                 .Include(p => p.Images)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (property == null)
-                return NotFound();
+            if (property == null) return NotFound();
 
             return Ok(new PropertyDetailResponseDto
             {
@@ -140,7 +139,6 @@ namespace SmartRent.Controllers
             _context.Properties.Add(property);
             await _context.SaveChangesAsync();
 
-            // Corrected: include the value (response body)
             var resultDto = new PropertyDetailResponseDto
             {
                 Id = property.Id,
@@ -167,12 +165,11 @@ namespace SmartRent.Controllers
             };
 
             return CreatedAtRoute(
-                routeName: "GetPropertyById",
-                routeValues: new { id = property.Id },
-                value: resultDto
+                "GetPropertyById",
+                new { id = property.Id },
+                resultDto
             );
         }
-
 
         // ==================================================
         // PUT: api/properties/{id}
@@ -181,21 +178,16 @@ namespace SmartRent.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, [FromForm] UpdatePropertyDto dto)
         {
-            // Load property with images using tracking
             var property = await _context.Properties
                 .Include(p => p.Images)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (property == null)
-                return NotFound();
+            if (property == null) return NotFound();
 
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            if (property.UserId != userId)
-                return Forbid();
+            if (property.UserId != userId) return Forbid();
 
-            // -----------------------------
             // Update scalar fields
-            // -----------------------------
             property.Title = dto.Title;
             property.Description = dto.Description;
             property.Price = dto.Price;
@@ -208,58 +200,61 @@ namespace SmartRent.Controllers
             var removedImageUrls = new List<string>();
 
             // -----------------------------
-            // Remove images explicitly
+            // Step 1: Remove deleted images
             // -----------------------------
             if (dto.DeletedImageIds?.Any() == true)
             {
-                // Load the images from DB for deletion
-                var imagesToRemove = await _context.PropertyImages
-                    .Where(i => dto.DeletedImageIds.Contains(i.Id) && i.PropertyId == id)
-                    .ToListAsync();
+                var imagesToRemove = property.Images
+                    .Where(i => dto.DeletedImageIds.Contains(i.Id))
+                    .ToList();
 
                 foreach (var img in imagesToRemove)
                 {
                     removedImageUrls.Add(img.ImageUrl);
-                    _context.PropertyImages.Remove(img); // EF tracks deletion
+                    property.Images.Remove(img);
+                    _context.PropertyImages.Remove(img);
                 }
+
+                // Commit deletions immediately
+                await _context.SaveChangesAsync();
             }
 
             // -----------------------------
-            // Add new images
+            // Step 2: Add new images
             // -----------------------------
             if (dto.Images?.Any() == true)
             {
                 foreach (var file in dto.Images)
                 {
                     var url = await _imageService.SaveImageAsync(file, "properties");
-                    var newImage = new PropertyImage
+                    property.Images.Add(new PropertyImage
                     {
                         Id = Guid.NewGuid(),
                         ImageUrl = url,
                         IsThumbnail = false,
                         PropertyId = property.Id
-                    };
-                    _context.PropertyImages.Add(newImage);
+                    });
                 }
             }
 
             // -----------------------------
-            // Ensure exactly one thumbnail
+            // Step 3: Ensure exactly one thumbnail
             // -----------------------------
-            var allImages = await _context.PropertyImages
-                .Where(i => i.PropertyId == property.Id)
-                .ToListAsync();
-
-            if (allImages.Any())
+            var images = property.Images.ToList();
+            if (images.Any())
             {
-                foreach (var img in allImages)
-                    img.IsThumbnail = false;
+                // Keep existing thumbnail if present
+                var thumbnail = images.FirstOrDefault(i => i.IsThumbnail);
 
-                allImages.First().IsThumbnail = true;
+                if (thumbnail == null)
+                    images.First().IsThumbnail = true;
+                else
+                    foreach (var img in images)
+                        img.IsThumbnail = img == thumbnail;
             }
 
             // -----------------------------
-            // Save changes in a single transaction
+            // Step 4: Save all changes
             // -----------------------------
             try
             {
@@ -271,7 +266,7 @@ namespace SmartRent.Controllers
             }
 
             // -----------------------------
-            // Delete physical files after DB commit
+            // Step 5: Delete physical files
             // -----------------------------
             foreach (var url in removedImageUrls)
             {
@@ -293,12 +288,10 @@ namespace SmartRent.Controllers
                 .Include(p => p.Images)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (property == null)
-                return NotFound();
+            if (property == null) return NotFound();
 
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            if (property.UserId != userId)
-                return Forbid();
+            if (property.UserId != userId) return Forbid();
 
             var imageUrls = property.Images.Select(i => i.ImageUrl).ToList();
 
