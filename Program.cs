@@ -152,7 +152,7 @@ using (var scope = app.Services.CreateScope())
         throw; // Stop app if migration fails
     }
 }
-// builder.Services ထဲမှာ ထည့်ရန်
+ //builder.Services ထဲမှာ ထည့်ရန်
 
 
 // app.UseAuthorization() ရဲ့ အပေါ်မှာ ထည့်ရန်
