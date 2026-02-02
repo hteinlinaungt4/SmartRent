@@ -135,54 +135,81 @@ namespace SmartRent.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProperty(Guid id, [FromForm] UpdatePropertyDto dto)
         {
-            var property = await _context.Properties.Include(p => p.Images).FirstOrDefaultAsync(p => p.Id == id);
-            if (property == null) return NotFound();
-
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            if (property.UserId != userId) return Forbid();
-
-            // Update Fields
-            property.Title = dto.Title;
-            property.Description = dto.Description;
-            property.Price = dto.Price;
-            property.Township = dto.Township;
-            property.CategoryId = dto.CategoryId;
-            property.Beds = dto.Beds;
-            property.Baths = dto.Baths;
-            property.Sqft = dto.Sqft;
-
-            // Delete Images (Physical File + DB Record)
-            if (dto.DeletedImageIds != null && dto.DeletedImageIds.Any())
+            try
             {
-                var imagesToRemove = property.Images.Where(i => dto.DeletedImageIds.Contains(i.Id)).ToList();
-                foreach (var img in imagesToRemove)
-                {
-                    _imageService.DeleteImage(img.ImageUrl); // physical ဖျက်မယ်
-                    _context.PropertyImages.Remove(img);     // DB က ဖျက်မယ်
-                }
-            }
+                // 1. Load Data with Related Images
+                var property = await _context.Properties
+                    .Include(p => p.Images)
+                    .FirstOrDefaultAsync(p => p.Id == id);
 
-            // Add New Images
-            if (dto.Images != null)
-            {
-                foreach (var file in dto.Images)
+                if (property == null) return NotFound(new { message = "Property not found" });
+
+                // 2. Auth Check
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdClaim) || property.UserId != Guid.Parse(userIdClaim))
+                    return Forbid();
+
+                // 3. Update Fields
+                property.Title = dto.Title;
+                property.Description = dto.Description;
+                property.Township = dto.Township;
+                property.CategoryId = dto.CategoryId;
+                property.Beds = dto.Beds;
+                property.Baths = dto.Baths;
+                property.Sqft = dto.Sqft;
+                property.Price = dto.Price;
+
+             
+
+                // 4. Delete Images Logic
+                // Frontend က DeletedImageIds[0], DeletedImageIds[1] လို့ ပို့ရင် ဒါက Bind မိပါလိမ့်မယ်
+                if (dto.DeletedImageIds != null && dto.DeletedImageIds.Any())
                 {
-                    var relativeUrl = await _imageService.SaveImageAsync(file, "properties");
-                    property.Images.Add(new PropertyImage
+                    var imagesToRemove = property.Images
+                        .Where(i => dto.DeletedImageIds.Contains(i.Id))
+                        .ToList();
+
+                    foreach (var img in imagesToRemove)
                     {
-                        Id = Guid.NewGuid(),
-                        ImageUrl = relativeUrl,
-                        IsThumbnail = false
-                    });
+                        try
+                        {
+                            _imageService.DeleteImage(img.ImageUrl);
+                        }
+                        catch { /* Physical file မရှိရင် skip လုပ်မယ် */ }
+
+                        _context.PropertyImages.Remove(img);
+                    }
                 }
+
+                // 5. Add New Images
+                if (dto.Images != null && dto.Images.Any())
+                {
+                    foreach (var file in dto.Images)
+                    {
+                        var relativeUrl = await _imageService.SaveImageAsync(file, "properties");
+                        property.Images.Add(new PropertyImage
+                        {
+                            Id = Guid.NewGuid(),
+                            ImageUrl = relativeUrl,
+                            IsThumbnail = false
+                        });
+                    }
+                }
+
+                // 6. Thumbnail Fix
+                if (property.Images.Any() && !property.Images.Any(i => i.IsThumbnail))
+                    property.Images.First().IsThumbnail = true;
+
+                await _context.SaveChangesAsync();
+
+                // Return 200 OK with Data instead of NoContent for Frontend convenience
+                return Ok(property);
             }
-
-            // အကယ်၍ Thumbnail ရှိမနေရင် ပထမဆုံးပုံကို Thumbnail ပေးမယ်
-            if (property.Images.Any() && !property.Images.Any(i => i.IsThumbnail))
-                property.Images.First().IsThumbnail = true;
-
-            await _context.SaveChangesAsync();
-            return NoContent();
+            catch (Exception ex)
+            {
+                // Debug လုပ်ရလွယ်အောင် Error Message ပြန်ပေးထားမယ်
+                return StatusCode(500, new { error = ex.Message, detail = ex.InnerException?.Message });
+            }
         }
 
         // 5. DELETE
