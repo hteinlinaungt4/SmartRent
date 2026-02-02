@@ -72,7 +72,7 @@ namespace SmartRent.Controllers
                     IsAvailable = p.IsAvailable,
                     CreatedAt = p.CreatedAt,
                     CategoryName = p.Category != null ? p.Category.Name : "General",
-                    CategoryId = p.CategoryId.ToString(),
+                    CategoryId = p.Category != null ? p.Category.Id.ToString() : "null",
                     OwnerName = p.User != null ? p.User.Username : "Unknown",
                     OwnerId = p.User != null ? p.User.Id.ToString() : string.Empty,
                     TrustScore = p.User != null ? p.User.TrustScore : 0,
