@@ -6,61 +6,59 @@ namespace SmartRent.Service
 {
     public interface IImageService
     {
-        Task<string> SaveImageAsync(IFormFile file, string folderName);
+        Task<string> SaveImageAsync(IFormFile file, string folder);
         void DeleteImage(string imageUrl);
     }
 
     public class ImageService : IImageService
     {
-        private readonly IWebHostEnvironment _environment;
+        private readonly IWebHostEnvironment _env;
 
-        public ImageService(IWebHostEnvironment environment)
+        public ImageService(IWebHostEnvironment env)
         {
-            _environment = environment;
+            _env = env;
         }
 
-        public async Task<string> SaveImageAsync(IFormFile file, string folderName)
+        public async Task<string> SaveImageAsync(IFormFile file, string folder)
         {
-            string webRootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            string uploadsFolder = Path.Combine(webRootPath, "uploads", folderName);
+            var root = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var uploadPath = Path.Combine(root, "uploads", folder);
 
-            if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+            Directory.CreateDirectory(uploadPath);
 
-            string uniqueFileName = $"{Guid.NewGuid()}.jpg";
-            string filePath = Path.Combine(uploadsFolder, uniqueFileName);
+            var fileName = $"{Guid.NewGuid()}.jpg";
+            var fullPath = Path.Combine(uploadPath, fileName);
 
             using var image = await Image.LoadAsync(file.OpenReadStream());
 
-            // Resize Logic
-            int maxWidth = 1200;
-            if (image.Width > maxWidth)
+            if (image.Width > 1200)
             {
                 image.Mutate(x => x.Resize(new ResizeOptions
                 {
-                    Size = new Size(maxWidth, 0),
-                    Mode = ResizeMode.Max
+                    Mode = ResizeMode.Max,
+                    Size = new Size(1200, 0)
                 }));
             }
 
-            // Compress Logic
-            var encoder = new JpegEncoder { Quality = 75 };
-            await image.SaveAsync(filePath, encoder);
+            await image.SaveAsync(fullPath, new JpegEncoder { Quality = 75 });
 
-            // Database မှာ သိမ်းဖို့ path အတိုလေးပဲ ပြန်ပေးမယ်
-            return $"/uploads/{folderName}/{uniqueFileName}";
+            return $"/uploads/{folder}/{fileName}";
         }
 
         public void DeleteImage(string imageUrl)
         {
-            if (string.IsNullOrEmpty(imageUrl) || imageUrl.Contains("default.png")) return;
+            if (string.IsNullOrWhiteSpace(imageUrl) || imageUrl.Contains("default.png"))
+                return;
 
-            string webRootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var root = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var relativePath = imageUrl.StartsWith("http")
+                ? new Uri(imageUrl).LocalPath
+                : imageUrl;
 
-            // URL ထဲမှာ domain ပါနေရင် ခွာထုတ်ဖို့ (Security အတွက်)
-            string relativePath = imageUrl.StartsWith("http") ? new Uri(imageUrl).LocalPath : imageUrl;
-            var filePath = Path.Combine(webRootPath, relativePath.TrimStart('/'));
+            var fullPath = Path.Combine(root, relativePath.TrimStart('/'));
 
-            if (File.Exists(filePath)) File.Delete(filePath);
+            if (File.Exists(fullPath))
+                File.Delete(fullPath);
         }
     }
 }
