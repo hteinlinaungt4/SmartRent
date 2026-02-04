@@ -199,9 +199,7 @@ namespace SmartRent.Controllers
 
             var removedImageUrls = new List<string>();
 
-            // -----------------------------
-            // Step 1: Remove deleted images
-            // -----------------------------
+            // Step 1: Mark images for deletion (don't save yet)
             if (dto.DeletedImageIds?.Any() == true)
             {
                 var imagesToRemove = property.Images
@@ -215,13 +213,11 @@ namespace SmartRent.Controllers
                     _context.PropertyImages.Remove(img);
                 }
 
-                // Commit deletions immediately
-                await _context.SaveChangesAsync();
+                // ❌ REMOVE THIS LINE - Don't save here!
+                // await _context.SaveChangesAsync();
             }
 
-            // -----------------------------
             // Step 2: Add new images
-            // -----------------------------
             if (dto.Images?.Any() == true)
             {
                 foreach (var file in dto.Images)
@@ -237,15 +233,11 @@ namespace SmartRent.Controllers
                 }
             }
 
-            // -----------------------------
             // Step 3: Ensure exactly one thumbnail
-            // -----------------------------
             var images = property.Images.ToList();
             if (images.Any())
             {
-                // Keep existing thumbnail if present
                 var thumbnail = images.FirstOrDefault(i => i.IsThumbnail);
-
                 if (thumbnail == null)
                     images.First().IsThumbnail = true;
                 else
@@ -253,9 +245,7 @@ namespace SmartRent.Controllers
                         img.IsThumbnail = img == thumbnail;
             }
 
-            // -----------------------------
-            // Step 4: Save all changes
-            // -----------------------------
+            // Step 4: Save ALL changes at once (no 409 error now!)
             try
             {
                 await _context.SaveChangesAsync();
@@ -265,9 +255,7 @@ namespace SmartRent.Controllers
                 return Conflict(new { message = "The property was modified by someone else. Please reload and try again." });
             }
 
-            // -----------------------------
-            // Step 5: Delete physical files
-            // -----------------------------
+            // Step 5: Delete physical files after database save
             foreach (var url in removedImageUrls)
             {
                 try { _imageService.DeleteImage(url); } catch { }
@@ -275,7 +263,6 @@ namespace SmartRent.Controllers
 
             return Ok(new { message = "Property updated successfully" });
         }
-
 
         // ==================================================
         // DELETE: api/properties/{id}
