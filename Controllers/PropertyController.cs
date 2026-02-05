@@ -22,10 +22,21 @@ namespace SmartRent.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PropertyResponseDto>>> GetAll()
+        public async Task<ActionResult<object>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var properties = await _propertyService.GetAllPropertiesAsync();
-            return Ok(properties);
+            var (items, totalCount, totalPages, currentPage) = await _propertyService.GetAllPropertiesAsync(page, pageSize);
+            
+            var response = new
+            {
+                Items = items,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                CurrentPage = currentPage,
+                HasNextPage = currentPage < totalPages,
+                HasPreviousPage = currentPage > 1
+            };
+            
+            return Ok(response);
         }
 
         [HttpGet("{id}", Name = "GetPropertyById")]

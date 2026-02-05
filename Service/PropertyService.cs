@@ -28,11 +28,16 @@ namespace SmartRent.Service
             }
         }
 
-        public async Task<IEnumerable<PropertyResponseDto>> GetAllPropertiesAsync()
+        public async Task<(IEnumerable<PropertyResponseDto> items, int totalCount, int totalPages, int currentPage)> GetAllPropertiesAsync(int page = 1, int pageSize = 10)
         {
-            return await _context.Properties
+            var totalCount = await _context.Properties.AsNoTracking().CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+            
+            var items = await _context.Properties
                 .AsNoTracking()
                 .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(p => new PropertyResponseDto
                 {
                     Id = p.Id,
@@ -51,6 +56,8 @@ namespace SmartRent.Service
                                     .FirstOrDefault() ?? (BaseUrl + "/uploads/default.png")
                 })
                 .ToListAsync();
+
+            return (items, totalCount, totalPages, page);
         }
 
         public async Task<PropertyDetailResponseDto?> GetPropertyByIdAsync(Guid id)
