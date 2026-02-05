@@ -2,8 +2,9 @@
 {
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public string Price { get; set; }
+    public decimal Price { get; set; }
     public string Township { get; set; } = string.Empty;
+    public string? Address { get; set; }
     public Guid CategoryId { get; set; }
     public int Beds { get; set; }
     public int Baths { get; set; }

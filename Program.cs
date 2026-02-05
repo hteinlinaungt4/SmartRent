@@ -115,6 +115,7 @@ builder.Services.AddDbContext<DataContext>(options =>
 // ------------------------
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<IPropertyService, PropertyService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddCors(options =>
 {
@@ -133,24 +134,24 @@ var app = builder.Build();
 // ------------------------
 using (var scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
+   var services = scope.ServiceProvider;
+   var logger = services.GetRequiredService<ILogger<Program>>();
 
-    try
-    {
-        var context = services.GetRequiredService<DataContext>();
-        if (context.Database.GetPendingMigrations().Any())
-        {
-            logger.LogInformation("Applying pending database migrations...");
-            context.Database.Migrate();
-            logger.LogInformation("Database migrations applied successfully.");
-        }
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Error occurred while migrating the database.");
-        throw; // Stop app if migration fails
-    }
+   try
+   {
+       var context = services.GetRequiredService<DataContext>();
+       if (context.Database.GetPendingMigrations().Any())
+       {
+           logger.LogInformation("Applying pending database migrations...");
+           context.Database.Migrate();
+           logger.LogInformation("Database migrations applied successfully.");
+       }
+   }
+   catch (Exception ex)
+   {
+       logger.LogError(ex, "Error occurred while migrating the database.");
+       throw; // Stop app if migration fails
+   }
 }
  //builder.Services ထဲမှာ ထည့်ရန်
 

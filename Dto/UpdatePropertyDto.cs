@@ -2,6 +2,8 @@
 {
     public class UpdatePropertyDto : CreatePropertyDto
     {
-        public List<Guid>? DeletedImageIds { get; set; }
+        public bool IsAvailable { get; set; }
+        public bool IsFeatured { get; set; }
+        public List<Guid>? DeletedImageIds { get; set; } = new();
     }
 }

@@ -28,7 +28,7 @@ namespace SmartRent.Controllers
 
         // 2. GET: api/categories/5 (တစ်ခုချင်းစီ အသေးစိတ်ကြည့်ခြင်း)
         [HttpGet("{id}")]
-        public async Task<ActionResult<Category>> GetCategory(int id)
+        public async Task<ActionResult<Category>> GetCategory(Guid id)
         {
             var category = await _context.Categories.FindAsync(id);
 

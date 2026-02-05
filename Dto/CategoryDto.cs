@@ -8,5 +8,5 @@
 
 
     // Category ပြန်ထုတ်ပြဖို့ (Response)
-    public record CategoryResponseDto(int Id, string Name, string IconName);
+    public record CategoryResponseDto(Guid Id, string Name, string IconName);
 }
